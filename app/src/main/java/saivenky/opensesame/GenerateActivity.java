@@ -3,7 +3,7 @@ package saivenky.opensesame;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
-import android.support.design.widget.Snackbar;
+import android.content.SharedPreferences;
 import android.support.v7.app.AppCompatActivity;
 
 import android.os.Bundle;
@@ -12,6 +12,8 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.inputmethod.EditorInfo;
+import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Switch;
@@ -22,11 +24,14 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 
 public class GenerateActivity extends AppCompatActivity {
-
+    private static final String PREFS_NAME = "OpenSesamePrefs";
+    private static final String PREF_TAG_HISTORY = "TagHistory";
     private static final String LOWERCASE = "abcdefghijklmnopqrstuvwxyz";
     private static final String UPPERCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     private static final String NUMBERS = "0123456789";
@@ -34,7 +39,7 @@ public class GenerateActivity extends AppCompatActivity {
     private static final int PASS_LENGTH = 10;
 
     // UI references.
-    private EditText mTagView;
+    private AutoCompleteTextView mTagView;
     private EditText mPassphraseView;
     private Switch mHasLowercase;
     private Switch mHasUppercase;
@@ -42,13 +47,38 @@ public class GenerateActivity extends AppCompatActivity {
     private Switch mHasSymbols;
 
     private ClipboardManager clipboardManager;
+    private SharedPreferences settings;
+    private Set<String> tagHistory;
+
+    private void setTagHistoryAdapter() {
+        ArrayAdapter<String> tagHistoryAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, tagHistory.toArray(new String[tagHistory.size()]));
+        mTagView.setAdapter(tagHistoryAdapter);
+    }
+
+    private void savePrefs() {
+        SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
+        SharedPreferences.Editor editor = settings.edit();
+        editor.putStringSet(PREF_TAG_HISTORY, tagHistory);
+        editor.commit();
+    }
+
+    private void addToTagHistory(String tag) {
+        if (!tagHistory.contains(tag)) {
+            tagHistory.add(tag);
+            setTagHistoryAdapter();
+            savePrefs();
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_generate);
-        // Set up the login form.
-        mTagView = (EditText) findViewById(R.id.tag);
+
+        mTagView = (AutoCompleteTextView) findViewById(R.id.tag);
+        settings = getSharedPreferences(PREFS_NAME, 0);
+        tagHistory = settings.getStringSet(PREF_TAG_HISTORY, new HashSet<String>());
+        setTagHistoryAdapter();
 
         mPassphraseView = (EditText) findViewById(R.id.passphrase);
         mPassphraseView.setOnEditorActionListener(new TextView.OnEditorActionListener() {
@@ -175,6 +205,7 @@ public class GenerateActivity extends AppCompatActivity {
             return;
         }
 
+        addToTagHistory(tag);
         int[] seed = generateSeed(hasLowercase, hasUppercase, hasNumbers, hasSymbols, tag, passphrase);
         StringBuilder passwordBuilder = buildPassword(seed, hasLowercase, hasUppercase, hasNumbers, hasSymbols);
         String generatedPassword = correctGeneratedPassword(passwordBuilder, seed, hasLowercase, hasUppercase, hasNumbers, hasSymbols);

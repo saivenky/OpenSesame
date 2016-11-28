@@ -34,12 +34,13 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content">
 
-                <EditText
+                <AutoCompleteTextView
                     android:id="@+id/tag"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:hint="@string/prompt_tag"
                     android:maxLines="1"
+                    android:completionThreshold="3"
                     android:singleLine="true" />
 
             </android.support.design.widget.TextInputLayout>
