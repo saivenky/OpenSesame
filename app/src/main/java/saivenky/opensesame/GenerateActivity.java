@@ -159,7 +159,7 @@ public class GenerateActivity extends AppCompatActivity {
         View focusView = null;
 
 
-        if (!TextUtils.isEmpty(passphrase)) {
+        if (TextUtils.isEmpty(passphrase)) {
             mPassphraseView.setError(getString(R.string.error_field_required));
             focusView = mPassphraseView;
             cancel = true;
