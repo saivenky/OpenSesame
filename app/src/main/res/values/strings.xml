@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">Open Sesame</string>
+
+    <!-- Strings related to login -->
+    <string name="prompt_tag">Tag</string>
+    <string name="prompt_passphrase">Passphrase</string>
+    <string name="action_sign_in">Copy Password to Clipboard</string>
+    <string name="action_sign_in_short">Generate</string>
+    <string name="error_invalid_email">This tag is invalid</string>
+    <string name="error_incorrect_password">This passphrase is incorrect</string>
+    <string name="error_field_required">This field is required</string>
+</resources>
