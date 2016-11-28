@@ -2,6 +2,8 @@ package saivenky.opensesame;
 
 import android.content.ClipData;
 import android.content.ClipboardManager;
+import android.content.Context;
+import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 
 import android.os.Bundle;
@@ -14,6 +16,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Switch;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -37,7 +40,6 @@ public class GenerateActivity extends AppCompatActivity {
     private Switch mHasUppercase;
     private Switch mHasNumbers;
     private Switch mHasSymbols;
-    private TextView mGenerated;
 
     private ClipboardManager clipboardManager;
 
@@ -64,7 +66,6 @@ public class GenerateActivity extends AppCompatActivity {
         mHasUppercase = (Switch) findViewById(R.id.hasUppercase);
         mHasNumbers = (Switch) findViewById(R.id.hasNumbers);
         mHasSymbols = (Switch) findViewById(R.id.hasSymbols);
-        mGenerated = (TextView) findViewById(R.id.generated);
         clipboardManager = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
 
         Button mGenerateButton = (Button) findViewById(R.id.generate_button);
@@ -79,8 +80,6 @@ public class GenerateActivity extends AppCompatActivity {
     private void resetErrors() {
         mTagView.setError(null);
         mPassphraseView.setError(null);
-        mHasLowercase.setError(null);
-        mGenerated.setText("GENERATED");
     }
 
     private int[] generateSeed(
@@ -181,11 +180,15 @@ public class GenerateActivity extends AppCompatActivity {
         String generatedPassword = correctGeneratedPassword(passwordBuilder, seed, hasLowercase, hasUppercase, hasNumbers, hasSymbols);
 
         copyPasswordToClipboard(generatedPassword);
-        mGenerated.setText(generatedPassword);
     }
 
     private void copyPasswordToClipboard(String password) {
         clipboardManager.setPrimaryClip(ClipData.newPlainText("OpenSesame.generatedPassword", password));
+        Context context = getApplicationContext();
+        CharSequence text = "Copied '" + password + "' to clipboard";
+        int duration = Toast.LENGTH_SHORT;
+        Toast toast = Toast.makeText(context, text, duration);
+        toast.show();
     }
 
     public static byte[] toSHA1(String toHash) {
