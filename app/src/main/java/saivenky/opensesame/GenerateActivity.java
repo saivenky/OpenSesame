@@ -4,6 +4,7 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.CountDownTimer;
 import android.support.v7.app.AppCompatActivity;
 
 import android.os.Bundle;
@@ -37,6 +38,10 @@ public class GenerateActivity extends AppCompatActivity {
     private static final String NUMBERS = "0123456789";
     private static final String SYMBOLS = "!@#$%&*()?=";
     private static final int PASS_LENGTH = 10;
+    private static final long CLEAR_PASSWORD_TIME_IN_MS = 120000;
+    private static final long CLEAR_PASSWORD_WARNING_TIME_IN_MS = 30000;
+    private static final long CLEAR_PASSWORD_TIMER_TICK_IN_MS = 15000;
+    private static final String CLIPBOARD_PASSWORD_KEY = "OpenSesame.generatedPassword";
 
     // UI references.
     private AutoCompleteTextView mTagView;
@@ -49,6 +54,7 @@ public class GenerateActivity extends AppCompatActivity {
     private ClipboardManager clipboardManager;
     private SharedPreferences settings;
     private Set<String> tagHistory;
+    private CountDownTimer clearPasswordTimer;
 
     private void setTagHistoryAdapter() {
         ArrayAdapter<String> tagHistoryAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, tagHistory.toArray(new String[tagHistory.size()]));
@@ -97,6 +103,22 @@ public class GenerateActivity extends AppCompatActivity {
         mHasNumbers = (Switch) findViewById(R.id.hasNumbers);
         mHasSymbols = (Switch) findViewById(R.id.hasSymbols);
         clipboardManager = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        clearPasswordTimer = new CountDownTimer(CLEAR_PASSWORD_TIME_IN_MS, CLEAR_PASSWORD_TIMER_TICK_IN_MS) {
+            @Override
+            public void onTick(long l) {
+                System.out.println(l);
+                if (l <= CLEAR_PASSWORD_WARNING_TIME_IN_MS && l > (CLEAR_PASSWORD_WARNING_TIME_IN_MS - CLEAR_PASSWORD_TIMER_TICK_IN_MS)) {
+                    String warningText = String.format("Clearing clipboard in %d seconds", CLEAR_PASSWORD_WARNING_TIME_IN_MS/1000);
+                    Toast warningOfClear = Toast.makeText(GenerateActivity.this, warningText, Toast.LENGTH_SHORT);
+                    warningOfClear.show();
+                }
+            }
+
+            @Override
+            public void onFinish() {
+                clearPasswordFromClipboard();
+            }
+        };
 
         Button mGenerateButton = (Button) findViewById(R.id.generate_button);
         mGenerateButton.setOnClickListener(new OnClickListener() {
@@ -214,9 +236,19 @@ public class GenerateActivity extends AppCompatActivity {
     }
 
     private void copyPasswordToClipboard(String password) {
-        clipboardManager.setPrimaryClip(ClipData.newPlainText("OpenSesame.generatedPassword", password));
+        clipboardManager.setPrimaryClip(ClipData.newPlainText(CLIPBOARD_PASSWORD_KEY, password));
         Context context = getApplicationContext();
         CharSequence text = "Copied '" + password + "' to clipboard";
+        int duration = Toast.LENGTH_SHORT;
+        Toast toast = Toast.makeText(context, text, duration);
+        toast.show();
+        clearPasswordTimer.start();
+    }
+
+    private void clearPasswordFromClipboard() {
+        clipboardManager.setPrimaryClip(ClipData.newPlainText(CLIPBOARD_PASSWORD_KEY, ""));
+        Context context = getApplicationContext();
+        CharSequence text = "Cleared password";
         int duration = Toast.LENGTH_SHORT;
         Toast toast = Toast.makeText(context, text, duration);
         toast.show();
