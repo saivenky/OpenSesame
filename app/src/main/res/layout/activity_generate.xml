@@ -40,8 +40,9 @@
                     android:layout_height="wrap_content"
                     android:hint="@string/prompt_tag"
                     android:maxLines="1"
-                    android:completionThreshold="3"
-                    android:singleLine="true" />
+                    android:completionThreshold="2"
+                    android:singleLine="true"
+                    android:inputType="text|textNoSuggestions"/>
 
             </android.support.design.widget.TextInputLayout>
 

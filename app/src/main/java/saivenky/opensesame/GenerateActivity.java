@@ -4,10 +4,9 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.support.v7.app.AppCompatActivity;
-
-import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.KeyEvent;
 import android.view.View;
@@ -21,23 +20,12 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.regex.Pattern;
-
 
 public class GenerateActivity extends AppCompatActivity {
     private static final String PREFS_NAME = "OpenSesamePrefs";
     private static final String PREF_TAG_HISTORY = "TagHistory";
-    private static final String LOWERCASE = "abcdefghijklmnopqrstuvwxyz";
-    private static final String UPPERCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    private static final String NUMBERS = "0123456789";
-    private static final String SYMBOLS = "!@#$%&*()?=";
-    private static final int PASS_LENGTH = 10;
     private static final long CLEAR_PASSWORD_TIME_IN_MS = 120000;
     private static final long CLEAR_PASSWORD_WARNING_TIME_IN_MS = 30000;
     private static final long CLEAR_PASSWORD_TIMER_TICK_IN_MS = 15000;
@@ -55,17 +43,26 @@ public class GenerateActivity extends AppCompatActivity {
     private SharedPreferences settings;
     private Set<String> tagHistory;
     private CountDownTimer clearPasswordTimer;
+    private PasswordGenerator passwordGenerator;
 
     private void setTagHistoryAdapter() {
-        ArrayAdapter<String> tagHistoryAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, tagHistory.toArray(new String[tagHistory.size()]));
+        String[] tags = tagHistory.toArray(new String[tagHistory.size()]);
+        for (String tag : tags) {
+            System.out.println(tag);
+        }
+        ArrayAdapter<String> tagHistoryAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, tags);
         mTagView.setAdapter(tagHistoryAdapter);
     }
 
     private void savePrefs() {
         SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
-        SharedPreferences.Editor editor = settings.edit();
-        editor.putStringSet(PREF_TAG_HISTORY, tagHistory);
-        editor.commit();
+        boolean succeeded = settings.edit()
+            .clear()
+            .putStringSet(PREF_TAG_HISTORY, tagHistory)
+            .commit();
+        if (!succeeded) {
+            System.out.println("Failed to write preferences");
+        }
     }
 
     private void addToTagHistory(String tag) {
@@ -106,7 +103,6 @@ public class GenerateActivity extends AppCompatActivity {
         clearPasswordTimer = new CountDownTimer(CLEAR_PASSWORD_TIME_IN_MS, CLEAR_PASSWORD_TIMER_TICK_IN_MS) {
             @Override
             public void onTick(long l) {
-                System.out.println(l);
                 if (l <= CLEAR_PASSWORD_WARNING_TIME_IN_MS && l > (CLEAR_PASSWORD_WARNING_TIME_IN_MS - CLEAR_PASSWORD_TIMER_TICK_IN_MS)) {
                     String warningText = String.format("Clearing clipboard in %d seconds", CLEAR_PASSWORD_WARNING_TIME_IN_MS/1000);
                     Toast warningOfClear = Toast.makeText(GenerateActivity.this, warningText, Toast.LENGTH_SHORT);
@@ -119,6 +115,8 @@ public class GenerateActivity extends AppCompatActivity {
                 clearPasswordFromClipboard();
             }
         };
+
+        passwordGenerator = new PasswordGenerator();
 
         Button mGenerateButton = (Button) findViewById(R.id.generate_button);
         mGenerateButton.setOnClickListener(new OnClickListener() {
@@ -134,67 +132,6 @@ public class GenerateActivity extends AppCompatActivity {
         mPassphraseView.setError(null);
     }
 
-    private int[] generateSeed(
-            boolean hasLowercase, boolean hasUppercase, boolean hasNumbers, boolean hasSymbols,
-            String tag, String passphrase) {
-        String usage = "";
-        usage += hasLowercase ? "1" : "0";
-        usage += hasUppercase ? "1" : "0";
-        usage += hasNumbers ? "1" : "0";
-        usage += hasSymbols ? "1" : "0";
-
-        String output = encode(usage) + "+" + encode(tag) + "+" + encode(passphrase);
-        return unsigned(toSHA1(output));
-    }
-
-    private StringBuilder buildPassword(
-            int[] seed, boolean hasLowercase, boolean hasUppercase, boolean hasNumbers, boolean hasSymbols) {
-        String fullSet = "";
-        fullSet += hasLowercase ? LOWERCASE : "";
-        fullSet += hasUppercase ? UPPERCASE : "";
-        fullSet += hasNumbers ? NUMBERS : "";
-        fullSet += hasSymbols ? SYMBOLS : "";
-
-        int passLength = 10;
-        StringBuilder passwordBuilder = new StringBuilder();
-        for (int i = 0; i < PASS_LENGTH; i++) {
-            passwordBuilder.append(fullSet.charAt(seed[i] % fullSet.length()));
-        }
-        passwordBuilder.append(" ");
-        return passwordBuilder;
-    }
-
-    private String correctGeneratedPassword(
-            StringBuilder passwordBuilder, int[] seed,
-            boolean hasLowercase, boolean hasUppercase, boolean hasNumbers, boolean hasSymbols) {
-        int setNumber = 0;
-        if (hasLowercase) {
-            if (!Pattern.matches(".*?[" + LOWERCASE + "].*?", passwordBuilder)) {
-                passwordBuilder.setCharAt((setNumber + 2) * 2, LOWERCASE.charAt(seed[PASS_LENGTH + setNumber] % LOWERCASE.length()));
-            }
-            setNumber += 1;
-        }
-        if (hasUppercase) {
-            if (!Pattern.matches(".*?[" + UPPERCASE + "].*?", passwordBuilder)) {
-                passwordBuilder.setCharAt((setNumber + 2) * 2, UPPERCASE.charAt(seed[PASS_LENGTH + setNumber] % UPPERCASE.length()));
-            }
-            setNumber += 1;
-        }
-        if (hasNumbers) {
-            if (!Pattern.matches(".*?[" + NUMBERS + "].*?", passwordBuilder)) {
-                passwordBuilder.setCharAt((setNumber + 2) * 2, NUMBERS.charAt(seed[PASS_LENGTH + setNumber] % NUMBERS.length()));
-            }
-            setNumber += 1;
-        }
-        if (hasSymbols) {
-            if (!Pattern.matches(".*?[" + SYMBOLS + "].*?", passwordBuilder)) {
-                passwordBuilder.setCharAt((setNumber + 2) * 2, SYMBOLS.charAt(seed[PASS_LENGTH + setNumber] % SYMBOLS.length()));
-            }
-        }
-
-        return passwordBuilder.substring(0, PASS_LENGTH);
-    }
-
     private void attemptGeneratePassword() {
         resetErrors();
 
@@ -208,7 +145,6 @@ public class GenerateActivity extends AppCompatActivity {
 
         boolean cancel = false;
         View focusView = null;
-
 
         if (TextUtils.isEmpty(passphrase)) {
             mPassphraseView.setError(getString(R.string.error_field_required));
@@ -228,10 +164,9 @@ public class GenerateActivity extends AppCompatActivity {
         }
 
         addToTagHistory(tag);
-        int[] seed = generateSeed(hasLowercase, hasUppercase, hasNumbers, hasSymbols, tag, passphrase);
-        StringBuilder passwordBuilder = buildPassword(seed, hasLowercase, hasUppercase, hasNumbers, hasSymbols);
-        String generatedPassword = correctGeneratedPassword(passwordBuilder, seed, hasLowercase, hasUppercase, hasNumbers, hasSymbols);
 
+        String generatedPassword = passwordGenerator.generate(
+            hasLowercase, hasUppercase, hasNumbers, hasSymbols, tag, passphrase);
         copyPasswordToClipboard(generatedPassword);
     }
 
@@ -252,31 +187,6 @@ public class GenerateActivity extends AppCompatActivity {
         int duration = Toast.LENGTH_SHORT;
         Toast toast = Toast.makeText(context, text, duration);
         toast.show();
-    }
-
-    public static byte[] toSHA1(String toHash) {
-        MessageDigest md = null;
-        try {
-            md = MessageDigest.getInstance("SHA-1");
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        }
-
-        return md.digest(toHash.getBytes());
-    }
-
-    private String encode(String toEncode) {
-        byte[] digest = toSHA1(toEncode);
-        String digestAsString = Charset.forName("ISO-8859-1").decode(ByteBuffer.wrap(digest)).toString();
-        return digestAsString;
-    }
-
-    public static int[] unsigned(byte[] byteArray) {
-        int[] result = new int[byteArray.length];
-        for (int i = 0; i < byteArray.length; i++) {
-            result[i] = byteArray[i] & 0xff;
-        }
-        return result;
     }
 }
 
